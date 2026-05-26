@@ -25,17 +25,8 @@ public class JwtFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain
     ) throws ServletException, IOException {
-//        System.out.println("REQUEST URI = " + request.getRequestURI());
-//        System.out.println("AUTH HEADER = " + request.getHeader("Authorization"));
 
-
-//        if (request.getRequestURI().startsWith("/api/webhooks")) {
-//            filterChain.doFilter(request, response);
-//            return;
-//        }
-
-
-        try {
+   try {
 
             String authHeader = request.getHeader("Authorization");
 
