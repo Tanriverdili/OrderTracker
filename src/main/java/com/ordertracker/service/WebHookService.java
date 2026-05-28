@@ -1,14 +1,8 @@
 package com.ordertracker.service;
-
-import com.ordertracker.dto.PaymentWebhookRequest;
 import com.ordertracker.entity.OrderEntity;
 import com.ordertracker.enums.OrderStatus;
 import com.ordertracker.repository.OrderRepository;
-import com.ordertracker.repository.WebHookLogRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 @Service
 public class WebHookService {
 
