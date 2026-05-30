@@ -1,4 +1,5 @@
 package com.ordertracker.service;
+<<<<<<< HEAD
 
 
 
@@ -7,10 +8,13 @@ package com.ordertracker.service;
 
 
 
+=======
+>>>>>>> a40756c9b17193538aebe50bb5102c803bde0f82
 import com.ordertracker.entity.OrderEntity;
 import com.ordertracker.entity.WebhookLogEntity;
 import com.ordertracker.enums.OrderStatus;
 import com.ordertracker.repository.OrderRepository;
+<<<<<<< HEAD
 import com.ordertracker.repository.WebHookLogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -28,6 +32,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+=======
+import org.springframework.stereotype.Service;
+>>>>>>> a40756c9b17193538aebe50bb5102c803bde0f82
 @Service
 @RequiredArgsConstructor
 public class WebHookService {
@@ -91,6 +98,7 @@ public class WebHookService {
         webHookLogRepository.save(log);
     }
 
+<<<<<<< HEAD
 
     public void handleShipmentWebhook(
             Long orderId,
@@ -231,6 +239,16 @@ public void retryFailedWebhooks() {
         log.setRetryCount(retry + 1);
 
         webHookLogRepository.save(log);
+=======
+  public void handlePaymentWebhook(Long orderId, OrderStatus status) {
+
+        OrderEntity order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        order.setStatus(status);
+
+        orderRepository.save(order);
+>>>>>>> a40756c9b17193538aebe50bb5102c803bde0f82
     }
 }
 
@@ -258,3 +276,69 @@ public void retryFailedWebhooks() {
 
 
 
+<<<<<<< HEAD
+=======
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+>>>>>>> a40756c9b17193538aebe50bb5102c803bde0f82
