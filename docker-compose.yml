@@ -1,0 +1,20 @@
+
+
+services:
+  db:
+    image: postgres:16
+    container_name: ordertracker-db
+    environment:
+      POSTGRES_DB: orderdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 2025
+    ports:
+      - "5432:5432"
+
+  app:
+    build: .
+    container_name: ordertracker-app
+    depends_on:
+      - db
+    ports:
+      - "8081:8081"

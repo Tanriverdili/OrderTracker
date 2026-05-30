@@ -16,10 +16,17 @@ public class WebhookLogEntity {
     private Long id;
     private String eventType;
 
+    @Column(name = "order_id")
+    private Long orderId;
+
+    @Column(nullable = false)
+    private Integer retryCount=0;
+
     @Column(name = "status")
     private String status;
 
     private LocalDateTime receivedAt;
+
     private String responseMessage;
 
     @Column(name = "payload", columnDefinition = "TEXT")

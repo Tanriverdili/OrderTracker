@@ -1,920 +1,260 @@
 package com.ordertracker.service;
 
-import com.ordertracker.dto.PaymentWebhookRequest;
+
+
+
+
+
+
+
 import com.ordertracker.entity.OrderEntity;
+import com.ordertracker.entity.WebhookLogEntity;
 import com.ordertracker.enums.OrderStatus;
 import com.ordertracker.repository.OrderRepository;
 import com.ordertracker.repository.WebHookLogRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//@Service
-//@RequiredArgsConstructor
-//public class WebHookService {
-//
-//    private final OrderRepository orderRepository;
-//    private final WebHookLogRepository webhookLogRepository;
-//
-//
-//    public void handlePaymentWebhook(
-//            Long orderId,
-//            OrderStatus status,
-//            String payload
-//    ) {
-//
-//        OrderEntity order = orderRepository.findById(orderId)
-//                .orElseThrow(() -> new RuntimeException("Order not found"));
-//
-//        order.setStatus(status);
-//
-//        orderRepository.save(order);
-//
-//        System.out.println("DB updated");
-//    }
-//}
-
-//
-//
-//    public void handleShipmentWebhook(Long orderId, OrderStatus status, String payload) {
-//
-//        if (orderId == null || status == null) {
-//            throw new RuntimeException("orderId və status boş ola bilməz");
-//        }
-//
-//        OrderEntity order = orderRepository.findById(orderId)
-//                .orElseThrow(() -> new RuntimeException("Order tapılmadı"));
-//
-//        order.setStatus(status);
-//        orderRepository.save(order);
-//
-//        WebhookLogEntity log = new WebhookLogEntity();
-//        log.setEventType("shipment");
-//        log.setPayload(payload);
-//        log.setStatus(status.name());
-//
-//        webhookLogRepository.save(log);
-//    }
-//}
-//
-//
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 public class WebHookService {
 
+    private static final Logger logger =
+            LoggerFactory.getLogger(WebHookService.class);
     private final OrderRepository orderRepository;
+    private final WebHookLogRepository webHookLogRepository;
+    private final EmailService emailService;
 
-    public WebHookService(OrderRepository orderRepository) {
-        this.orderRepository = orderRepository;
+    public void handlePaymentWebhook(
+            Long orderId,
+            OrderStatus status, String payload) {
+
+        logger.info("ORDER ID FROM PARAM = {}", orderId);
+
+        logger.info("Payment webhook received. OrderId={}, Status={}",
+                orderId, status);
+
+        WebhookLogEntity log = new WebhookLogEntity();
+
+        log.setEventType("PAYMENT");
+        log.setOrderId(orderId);
+        log.setPayload(payload);
+        log.setReceivedAt(LocalDateTime.now());
+
+
+        try {
+
+            OrderEntity order = orderRepository.findById(orderId)
+                    .orElseThrow(() ->
+                            new RuntimeException("Order not found"));
+
+
+            order.setStatus(status);
+            orderRepository.save(order);
+
+            logger.info("Order {} updated to {}", orderId, status);
+            emailService.sendOrderStatusEmail(
+                    order.getUser().getEmail(),
+                    status.name()
+            );
+
+            log.setStatus("SUCCESS");
+            log.setResponseMessage("Payment processed");
+
+        } catch (Exception e) {
+
+            log.setStatus("FAILED");
+            log.setResponseMessage(e.getMessage());
+//            log.setRetryCount(log.getRetryCount() + 1);
+            log.setRetryCount(0);
+
+            logger.error("Payment webhook failed for order {}", orderId, e);
+            log.setStatus("FAILED");
+            log.setResponseMessage(e.getMessage());
+
+            e.printStackTrace();
+        }
+
+        webHookLogRepository.save(log);
     }
-//
-//    @Transactional
-//    public void handlePaymentWebhook(Long orderId, OrderStatus orderStatus, String status) {
-//
-//        if (orderId == null) {
-//            throw new IllegalArgumentException("orderId is null");
-//        }
-//
-//        OrderEntity order = orderRepository.findById(orderId)
-//                .orElseThrow(() -> new RuntimeException("Order not found"));
-//
-//        order.setStatus(OrderStatus.valueOf(status));
-//
-//        orderRepository.save(order);
-//    }
-//}
 
 
+    public void handleShipmentWebhook(
+            Long orderId,
+            OrderStatus status, String payload) {
 
+        logger.info("Shipment webhook received. OrderId={}, Status={}",
+                orderId, status);
 
 
+        WebhookLogEntity webhookLogEntity =
+                new WebhookLogEntity();
 
+        webhookLogEntity.setEventType("SHIPMENT");
+        webhookLogEntity.setOrderId(orderId);
 
+        webhookLogEntity.setPayload(payload);
 
+        webhookLogEntity.setReceivedAt(LocalDateTime.now());
 
+        try {
 
+            OrderEntity order =
+                    orderRepository.findById(orderId)
+                            .orElseThrow(() ->
+                                    new RuntimeException("Order not found"));
 
+            // STATUS UPDATE
+            order.setStatus(status);
 
+            orderRepository.save(order);
+            logger.info("Shipment updated. OrderId={}, Status={}",
+                    orderId, status);
+            emailService.sendOrderStatusEmail(
+                    order.getUser().getEmail(),
+                    status.name()
+            );
 
+            webhookLogEntity.setStatus("SUCCESS");
 
+            webhookLogEntity.setResponseMessage(
+                    "Shipment processed successfully"
+            );
 
+        } catch (Exception e) {
+            webhookLogEntity.setStatus("FAILED");
+            webhookLogEntity.setResponseMessage(e.getMessage());
+//            webhookLogEntity.setRetryCount(webhookLogEntity.getRetryCount() + 1);
+            webhookLogEntity.setRetryCount(0);
 
+            logger.error("Shipment webhook failed for order {}", orderId, e);
 
+            webhookLogEntity.setStatus("FAILED");
 
+            webhookLogEntity.setResponseMessage(
+                    e.getMessage()
+            );
 
+            e.printStackTrace();
+        }
 
+        webHookLogRepository.save(webhookLogEntity);
+    }
 
 
+    public List<WebhookLogEntity> getLogs(String status, String date) {
 
 
+        LocalDateTime start = null;
+        LocalDateTime end = null;
 
+        if (date != null) {
+            LocalDate localDate = LocalDate.parse(date);
 
+            start = localDate.atStartOfDay();
+            end = localDate.atTime(23, 59, 59);
+        }
+        if (status != null && date != null) {
+            return webHookLogRepository.findByStatusIgnoreCaseAndReceivedAtBetween(status, start, end);
+        }
 
+        if (status != null) {
+            return webHookLogRepository.findByStatusIgnoreCase(status);
+        }
 
+        if (date != null) {
+            return webHookLogRepository.findByReceivedAtBetween(start, end);
+        }
 
+        return webHookLogRepository.findAll();
 
 
+    }
 
 
+    public Page<WebhookLogEntity> getLogs(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return webHookLogRepository.findAll(pageable);
+    }
 
 
 
 
+@Scheduled(fixedDelay = 60000)
+public void retryFailedWebhooks() {
 
+    List<WebhookLogEntity> failedLogs =
+            webHookLogRepository.findByStatus("FAILED");
 
+    for (WebhookLogEntity log : failedLogs) {
 
+        int retry = Optional.ofNullable(log.getRetryCount()).orElse(0);
 
 
+        // ✅ BURADA YAZILIR
+        if (retry >= 3) {
+            log.setStatus("FAILED_FINAL");
+            webHookLogRepository.save(log);
+            continue; // IMPORTANT
+        }
 
+        try {
+            log.setStatus("RETRYING");
 
+            // 🔥 BURADA SƏNİN BUSINESS LOGIC
+            OrderEntity order = orderRepository.findById(log.getOrderId())
+                    .orElseThrow(() -> new RuntimeException("Order not found"));
 
+            // əgər order tapıldısa SUCCESS
+            log.setStatus("SUCCESS");
+            log.setResponseMessage("Retried successfully");
 
+        } catch (Exception e) {
 
+            log.setStatus("FAILED");
+            log.setResponseMessage(e.getMessage());
+        }
 
+        log.setRetryCount(retry + 1);
 
-
-//
-//
-//    public void handlePaymentWebhook(Long orderId, OrderStatus status) {
-//
-//        System.out.println("ORDER ID = " + orderId);
-//        System.out.println("STATUS = " + status);
-//
-//        if (orderId == null) {
-//            throw new RuntimeException("orderId is null");
-//        }
-//
-//        OrderEntity order = orderRepository.findById(orderId)
-//                .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
-//
-//        order.setStatus(status);
-//
-//        orderRepository.save(order);
-//
-//        System.out.println("UPDATED SUCCESSFULLY");
-//    }
-//
-//}
-
-//
-//    public void handlePaymentWebhook(Long orderId, OrderStatus status) {
-//
-//        if (orderId == null) {
-//            throw new RuntimeException("Invalid webhook: orderId is null");
-//        }
-//
-//        OrderEntity order = orderRepository.findById(orderId)
-//                .orElseThrow(() -> new RuntimeException("Order not found"));
-//
-//        order.setStatus(status);
-//        orderRepository.save(order);
-//    }
-//}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    public void handlePaymentWebhook(Long orderId, OrderStatus status) {
-
-        OrderEntity order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
-
-        order.setStatus(status);
-
-        orderRepository.save(order);
+        webHookLogRepository.save(log);
     }
 }
 
 
+        public Map<String, Object> getDashboardData() {
 
+            long totalWebhooks = webHookLogRepository.count();
+            long success = webHookLogRepository.countByStatus("SUCCESS");
+            long failed = webHookLogRepository.countByStatus("FAILED");
 
+            long totalOrders = orderRepository.count();
 
+            Map<String, Object> data = new HashMap<>();
 
+            data.put("totalOrders", totalOrders);
+            data.put("totalWebhooks", totalWebhooks);
+            data.put("successWebhooks", success);
+            data.put("failedWebhooks", failed);
 
+            return data;
+        }
+    }
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//@Service
-//@RequiredArgsConstructor
-//public class WebHookService {
-//
-//    private final OrderRepository orderRepository;
-//    private final WebHookLogRepository webHookLogRepository;
-//    private final EmailService emailService;
-//
-//    public void handlePaymentWebhook(
-//            Long orderId,
-//            OrderStatus orderStatus,
-//            String payload
-//    ) {
-//
-//        WebhookLogEntity webhookLogEntity =
-//                new WebhookLogEntity();
-//
-//        webhookLogEntity.setEventType("payment");
-//        webhookLogEntity.setPayload(payload);
-//        webhookLogEntity.setReceivedAt(LocalDateTime.now());
-//
-//        try {
-//
-//            OrderEntity orderEntity =
-//                    orderRepository.findById(orderId)
-//                            .orElseThrow(() ->
-//                                    new RuntimeException("Order not found"));
-//
-//            // STATUS UPDATE
-//            orderEntity.setStatus(orderStatus);
-//
-//            orderRepository.save(orderEntity);
-//
-//            // EMAIL SEND
-//            emailService.sendEmail(
-//                    orderEntity.getUser().getEmail(),
-//                    "Order Updated",
-//                    "Your order status is now: "
-//                            + orderStatus
-//            );
-//
-//            webhookLogEntity.setStatus("SUCCESS");
-//
-//            webhookLogEntity.setResponseMessage(
-//                    "Order processed successfully"
-//            );
-//
-//        } catch (Exception e) {
-//
-//            webhookLogEntity.setStatus("FAILED");
-//
-//            webhookLogEntity.setResponseMessage(
-//                    e.getMessage()
-//            );
-//        }
-//
-//        webHookLogRepository.save(webhookLogEntity);
-//    }
-//}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//@Service
-//@RequiredArgsConstructor
-//public class WebHookService {
-//
-//    private final OrderRepository orderRepository;
-//    private final WebHookLogRepository webHookLogRepository;
-//    private final EmailService emailService;
-//
-//
-//    public void handlePaymentWebhook(
-//            Long orderId,
-//            OrderStatus status,
-//            String payload
-//    ) {
-//
-//        WebhookLogEntity log = new WebhookLogEntity();
-//
-//        log.setEventType("PAYMENT");
-//        log.setPayload(payload);
-//        log.setReceivedAt(LocalDateTime.now());
-//
-//        try {
-//
-//            OrderEntity order = orderRepository.findById(orderId)
-//                    .orElseThrow(() ->
-//                            new RuntimeException("Order not found"));
-//
-//            order.setStatus(status);
-//
-//            orderRepository.save(order);
-//
-//            // EMAIL SEND
-//            emailService.sendEmail(
-//                    orderEntity.getUser().getEmail(),
-//                    "Order Updated",
-//                    "Your order status is now: "
-//                            + orderStatus
-//            );
-//
-//            log.setStatus("SUCCESS");
-//            log.setResponseMessage("Payment processed");
-//
-//
-//        } catch (Exception e) {
-//
-//            log.setStatus("FAILED");
-//            log.setResponseMessage(e.getMessage());
-//
-//            e.printStackTrace();
-//        }
-//
-//        webHookLogRepository.save(log);
-//    }
-//}
-//
-//
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//@Service
-//@RequiredArgsConstructor
-//public class WebHookService {
-//    private final WebHookLogRepository webHookLogRepository;
-//
-////    private final WebHookLogRepository webhookLogRepository;
-//
-//    @Transactional
-//    public void logWebhook(String eventType, String status, String payload) {
-//
-//        WebhookLogEntity log = new WebhookLogEntity();
-//
-//        log.setEventType(eventType);
-//        log.setStatus(status);
-//        log.setPayload(payload);
-//        log.setReceivedAt(LocalDateTime.now());
-//        log.setResponseMessage("OK");
-//
-//        webHookLogRepository.save(log);
-//    }
-//}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//@Service
-//@RequiredArgsConstructor
-//public class WebHookService {
-//    private final WebHookLogRepository webHookLogRepository;
-//    private final OrderRepository orderRepository;
-//    @Transactional
-//    public void handlePaymentWebHook(PaymentWebhookRequest request) {
-//
-//        Long orderId = request.getOrderId();
-//
-//        // 🔥 BURADA BAŞLAYIR
-//        String statusStr = request.getStatus();
-//
-//        if (statusStr == null || statusStr.trim().isEmpty()) {
-//            throw new IllegalArgumentException("Invalid status: " + statusStr);
-//        }
-//
-//        OrderStatus orderStatus = OrderStatus.valueOf(
-//                statusStr.trim().toUpperCase()
-//        );
-//        // 🔥 BURADA BITIR
-//
-//        String payload = request.getPayload();
-//
-//        System.out.println("ORDER ID FROM REQUEST = " + orderId);
-//
-//        WebhookLogEntity log = new WebhookLogEntity();
-//        log.setEventType("payment");
-//        log.setStatus("RECEIVED");
-//        log.setPayload(payload);
-//        log.setReceivedAt(LocalDateTime.now());
-////
-////    @Transactional
-////    public void handlePaymentWebHook(Long orderId, OrderStatus orderStatus, String payload) {
-////        System.out.println("ORDER ID FROM REQUEST = " + orderId);
-////
-////        WebhookLogEntity log = new WebhookLogEntity();
-////        log.setEventType("payment");
-////        log.setStatus("RECEIVED");
-////        log.setPayload(payload);
-////        log.setReceivedAt(LocalDateTime.now());
-//
-//        try {
-//
-//            if (orderId == null) {
-//                throw new IllegalArgumentException("orderId is null");
-//            }
-//
-//            OrderEntity orderEntity = orderRepository.findById(orderId)
-//                    .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
-//
-//            orderEntity.setStatus(orderStatus);
-//            orderRepository.save(orderEntity);
-//
-//            log.setResponseMessage("Order successfully processed");
-//            log.setStatus("SUCCESS");
-//
-//        } catch (Exception e) {
-//            log.setResponseMessage(e.getMessage());
-//            log.setStatus("FAILED");
-//        }
-//
-//        webHookLogRepository.save(log);
-//    }
-//
-//    public void handleShipmentWebHook(Long orderId, OrderStatus orderStatus, String payload) {
-//
-//        WebhookLogEntity log = new WebhookLogEntity();
-//        log.setEventType("shipment");
-//        log.setStatus("RECEIVED");
-//        log.setPayload(payload);
-//        log.setReceivedAt(LocalDateTime.now());
-//
-//        try {
-//
-//            if (orderId == null) {
-//                throw new IllegalArgumentException("orderId is null");
-//            }
-//
-//            OrderEntity orderEntity = orderRepository.findById(orderId)
-//                    .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
-//
-//            orderEntity.setStatus(orderStatus);
-//            orderRepository.save(orderEntity);
-//
-//            log.setResponseMessage("Shipment successfully processed");
-//            log.setStatus("SUCCESS");
-//
-//        } catch (Exception e) {
-//            log.setResponseMessage(e.getMessage());
-//            log.setStatus("FAILED");
-//        }
-//
-//        webHookLogRepository.save(log);
-//    }
-//
-//
-//}
-//
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//    public void handlePaymentWebHook(Long orderId, OrderStatus orderStatus,String payload) {
-//        WebhookLogEntity webhookLogEntity = new WebhookLogEntity();
-//        webhookLogEntity.setEventType("payment");
-//        webhookLogEntity.setStatus("RECEIVED");
-//        webhookLogEntity.setPayload(payload);
-//        webhookLogEntity.setReceivedAt(LocalDateTime.now());
-//
-//    try{
-//        OrderEntity orderEntity = orderRepository.findById(orderId)
-//                .orElseThrow(()->new RuntimeException("Order not found"));
-//        orderEntity.setStatus(orderStatus);
-//        orderRepository.save(orderEntity);
-//
-//       webhookLogEntity.setResponseMessage("Order successfully processed");
-//       webhookLogEntity.setStatus("SUCCESS");
-//    }
-//    catch(Exception e){
-//        e.printStackTrace();
-//        webhookLogEntity.setResponseMessage(e.getMessage()); // ÇOX VACİB
-//        webhookLogEntity.setStatus("FAILED");
-//
-//    }
-//    webHookLogRepository.save(webhookLogEntity);
-//
-//    }
-//    public void handleShipmentWebHook(Long orderId, OrderStatus orderStatus,String payload) {
-//
-//        WebhookLogEntity webhookLogEntity = new WebhookLogEntity();
-//        webhookLogEntity.setEventType("shipment");
-//        webhookLogEntity.setStatus("RECEIVED");
-//        webhookLogEntity.setPayload(payload);
-//        webhookLogEntity.setReceivedAt(LocalDateTime.now());
-//
-//        try {
-//           OrderEntity orderEntity=orderRepository.findById(orderId)
-//                   .orElseThrow(()->new RuntimeException("Order not found"));
-//           orderEntity.setStatus(orderStatus);
-//           orderRepository.save(orderEntity);
-//           webhookLogEntity.setResponseMessage("Shipment successfully processed");
-//           webhookLogEntity.setStatus("SUCCESS");
-//        }
-//        catch(Exception e){
-//            e.printStackTrace();
-//            webhookLogEntity.setResponseMessage(e.getMessage()); // ÇOX VACİB
-//            webhookLogEntity.setStatus("FAILED");
-//
-//        }
-//
-//        webHookLogRepository.save(webhookLogEntity);
-//    }
-//
-//}

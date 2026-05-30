@@ -7,5 +7,5 @@ import lombok.Data;
 public class ShipmentWebhookRequest {
     private Long orderId;
     private String status;
-    private String payload;
+
 }
