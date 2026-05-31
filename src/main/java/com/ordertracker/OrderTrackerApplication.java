@@ -8,9 +8,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableAsync
 @SpringBootApplication
 public class OrderTrackerApplication {
-
     public static void main(String[] args) {
         SpringApplication.run(OrderTrackerApplication.class, args);
     }
-
 }
