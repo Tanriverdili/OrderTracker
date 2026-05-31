@@ -4,14 +4,12 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
-
 import java.security.Key;
 import java.util.Date;
 
 @Service
 public class JwtUtil {
-    private final Key key = Keys.hmacShaKeyFor(
-            "myverysecretkeymyverysecretkey1234567890"
+    private final Key key = Keys.hmacShaKeyFor("myverysecretkeymyverysecretkey1234567890"
                     .getBytes()
     );
     public String generateToken(String email, String role) {
@@ -33,9 +31,6 @@ public class JwtUtil {
     }
     public boolean validateToken(String token, UserDetails userDetails) {
         String username = extractUsername(token);
-
-        if (username == null) return false;
-
         return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
     }
     private boolean isTokenExpired(String token) {
@@ -44,7 +39,6 @@ public class JwtUtil {
                 .parseClaimsJws(token)
                 .getBody()
                 .getExpiration();
-
         return expiration.before(new Date());
     }
 }

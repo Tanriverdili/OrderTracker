@@ -3,7 +3,6 @@ import com.ordertracker.enums.OrderStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
-
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
@@ -12,7 +11,6 @@ import lombok.*;
 @Data
 @Table(name = "orders")
 public class OrderEntity {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

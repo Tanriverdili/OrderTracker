@@ -17,26 +17,22 @@ public class OrderController {
     @PostMapping
     public OrderEntity create(@RequestBody OrderRequest orderRequest, Authentication authentication) {
 return orderService.create(orderRequest, authentication.getName());
-
-
-}
-@GetMapping
-public List<OrderEntity> findAll() {
+    }
+    @GetMapping
+    public List<OrderEntity> findAll() {
         return orderService.findAll();
-}
-@GetMapping("/{id}")
+    }
+    @GetMapping("/{id}")
     public OrderEntity findById(@PathVariable Long id) {
         return orderService.findById(id);
-}
-@PutMapping("/{id}/status")
+    }
+    @PutMapping("/{id}/status")
 public OrderEntity updateStatus(@PathVariable Long id, @RequestParam OrderStatus status) {
         return orderService.updateStatus(status, id);
-}
-@DeleteMapping("{id}")
+    }
+    @DeleteMapping("{id}")
     public void delete(@PathVariable Long id) {
         orderService.delete(id);
-
-}
-
+    }
 }
 

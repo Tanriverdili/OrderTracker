@@ -14,6 +14,7 @@ public class WebhookLogEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
     private String eventType;
 
     @Column(name = "order_id")

@@ -7,7 +7,4 @@ import lombok.Setter;
 public class OrderRequest {
     private String orderNumber;
    private double totalPrice;
-
-
-
 }
